@@ -1,0 +1,82 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(daysToKeepStr: '2'))
+    }
+
+    environment {
+        GIT_URL = 'https://github.com/shivashankarbukka402/Sagar.git'
+        GIT_BRANCH = 'main'
+        GIT_CREDENTIALS = 'shivashankarbukka402'
+        IMAGE_NAME = 'shiva9828/kee'
+        IMAGE_TAG = "v1-${BUILD_NUMBER}"
+        DOCKERFILE_BASE = 'Dockerfile'
+        DOCKER_REGISTRY_CRED_ID = 'shiva9828'
+        SONAR_HOST_URL = 'http:// 65.0.56.8:9000'
+    }
+
+    stages {
+
+        stage('CHECKOUT') {
+            steps {
+                git branch: "${GIT_BRANCH}",
+                    credentialsId: "${GIT_CREDENTIALS}",
+                    url: "${GIT_URL}"
+            }
+        }
+
+        stage('Sonar Code Quality Check') {
+            steps {
+                dir('./Backend') {
+                    withCredentials([
+                        string(
+                            credentialsId: 'SONAR_TOKEN',
+                            variable: 'SONAR_TOKEN'
+                        )
+                    ]) {
+                        sh """
+                            sonar-scanner \
+                              -Dsonar.projectKey=kee \
+                              -Dsonar.sources=. \
+                              -Dsonar.host.url=${SONAR_HOST_URL} \
+                              -Dsonar.token=${SONAR_TOKEN}
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Docker Build and Push') {
+            steps {
+                script {
+
+                    echo "Jenkins Build Number: ${BUILD_NUMBER}"
+                    echo "Docker Image: ${IMAGE_NAME}:${IMAGE_TAG}"
+
+                    dir('./Backend') {
+
+                        dockerImage = docker.build(
+                            "${IMAGE_NAME}:${IMAGE_TAG}",
+                            "-f ${DOCKERFILE_BASE} ."
+                        )
+
+                        docker.withRegistry(
+                            '',
+                            "${DOCKER_REGISTRY_CRED_ID}"
+                        ) {
+                            dockerImage.push()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
