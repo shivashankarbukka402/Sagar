@@ -14,7 +14,7 @@ pipeline {
         IMAGE_TAG = "v1-${BUILD_NUMBER}"
         DOCKERFILE_BASE = 'Dockerfile'
         DOCKER_REGISTRY_CRED_ID = 'shiva9828'
-        SONAR_HOST_URL = 'http://13.205.15.42:9000'
+        SONAR_HOST_URL = 'http://13.200.229.244:9000'
     }
 
     stages {
