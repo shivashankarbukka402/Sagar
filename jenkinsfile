@@ -1,3 +1,4 @@
+
 pipeline {
     agent any
 
@@ -14,29 +15,38 @@ pipeline {
         IMAGE_TAG = "v1-${BUILD_NUMBER}"
         DOCKERFILE_BASE = 'Dockerfile'
         DOCKER_REGISTRY_CRED_ID = 'shiva9828'
-        SONAR_HOST_URL = 'http://13.200.229.244:9000/'
+        SONAR_HOST_URL = 'http://13.200.229.244:9000'
     }
 
     stages {
         stage('CHECKOUT') {
             steps {
                 script {
-                    gitcheckout(env.GIT_URL, env.GIT_BRANCH, env.GIT_CREDENTIALS)
+                    gitcheckout(
+                        env.GIT_URL,
+                        env.GIT_BRANCH,
+                        env.GIT_CREDENTIALS
+                    )
                 }
             }
         }
 
         stage('Sonar Code Quality check') {
             steps {
-                script {
-                    withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+                dir('Backend') {
+                    withCredentials([
+                        string(
+                            credentialsId: 'SONAR_TOKEN',
+                            variable: 'SONAR_TOKEN'
+                        )
+                    ]) {
                         sh '''
                             set +x
                             /opt/sonar-scanner/sonar-scanner/bin/sonar-scanner \
-                              -Dsonar.projectKey=Kee \
+                              -Dsonar.projectKey=kee \
                               -Dsonar.sources=. \
-                              -Dsonar.host.url=http://13.200.229.244:9000 \
-                              -Dsonar.token=$"SONAR_TOKEN"
+                              -Dsonar.host.url="$SONAR_HOST_URL" \
+                              -Dsonar.token="$SONAR_TOKEN"
                         '''
                     }
                 }
@@ -47,18 +57,28 @@ pipeline {
             steps {
                 script {
                     sh 'ls -lrt'
-                    dockerImage = docker.build("${IMAGE_NAME}:${IMAGE_TAG}", "-f ${DOCKERFILE_BASE} .")
-                    docker.withRegistry('', "${DOCKER_REGISTRY_CRED_ID}") {
-                        dockerImage.push()
+
+                    dir('Backend') {
+                        def dockerImage = docker.build(
+                            "${IMAGE_NAME}:${IMAGE_TAG}",
+                            "-f ${DOCKERFILE_BASE} ."
+                        )
+
+                        docker.withRegistry(
+                            '',
+                            "${DOCKER_REGISTRY_CRED_ID}"
+                        ) {
+                            dockerImage.push()
+                        }
                     }
                 }
             }
-         } 
+        }
+    }
 
-        post {
-           always {
-              cleanWs()
-           }
+    post {
+        always {
+            cleanWs()
         }
     }
 }
