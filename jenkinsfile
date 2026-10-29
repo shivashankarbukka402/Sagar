@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    triggers {
+        githubPush()
+    }
+
     options {
         disableConcurrentBuilds()
         buildDiscarder(logRotator(daysToKeepStr: '2'))
@@ -14,36 +18,29 @@ pipeline {
         IMAGE_TAG = "v1-${BUILD_NUMBER}"
         DOCKERFILE_BASE = 'Dockerfile'
         DOCKER_REGISTRY_CRED_ID = 'shiva9828'
-        SONAR_HOST_URL = 'http://13.200.229.244:9000'
+        SONAR_HOST_URL = 'http://13.200.229.244:9000/
     }
 
     stages {
-
         stage('CHECKOUT') {
             steps {
-                git branch: "${GIT_BRANCH}",
-                    credentialsId: "${GIT_CREDENTIALS}",
-                    url: "${GIT_URL}"
+                script {
+                    gitcheckout(env.GIT_URL, env.GIT_BRANCH, env.GIT_CREDENTIALS)
+                }
             }
         }
 
-        stage('Sonar Code Quality Check') {
+        stage('Sonar Code Quality check') {
             steps {
-                dir('./Backend') {
-                    withCredentials([
-                        string(
-                            credentialsId: 'SONAR_TOKEN',
-                            variable: 'SONAR_TOKEN'
-                        )
-                    ]) {
-                        sh '''
-                            set +x
-                            /opt/sonar-scanner/sonar-scanner/bin/sonar-scanner \
-                              -Dsonar.projectKey=kee \
+                script {
+                    withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+                        sh """
+                            sonar-scanner \
+                              -Dsonar.projectKey=Kee \
                               -Dsonar.sources=. \
-                              -Dsonar.host.url=$"SONAR_HOST_URL" \
-                              -Dsonar.token=$"SONAR_TOKEN"
-                        '''
+                              -Dsonar.host.url=${env.SONAR_HOST_URL} \
+                              -Dsonar.token=${SONAR_TOKEN}
+                        """
                     }
                 }
             }
@@ -52,28 +49,14 @@ pipeline {
         stage('Docker Build and Push') {
             steps {
                 script {
-
-                    echo "Jenkins Build Number: ${BUILD_NUMBER}"
-                    echo "Docker Image: ${IMAGE_NAME}:${IMAGE_TAG}"
-
-                    dir('./Backend') {
-
-                        dockerImage = docker.build(
-                            "${IMAGE_NAME}:${IMAGE_TAG}",
-                            "-f ${DOCKERFILE_BASE} ."
-                        )
-
-                        docker.withRegistry(
-                            '',
-                            "${DOCKER_REGISTRY_CRED_ID}"
-                        ) {
-                            dockerImage.push()
-                        }
+                    sh 'ls -lrt'
+                    dockerImage = docker.build("${IMAGE_NAME}:${IMAGE_TAG}", "-f ${DOCKERFILE_BASE} .")
+                    docker.withRegistry('', "${DOCKER_REGISTRY_CRED_ID}") {
+                        dockerImage.push()
                     }
                 }
             }
         }
-    }
 
     post {
         always {
