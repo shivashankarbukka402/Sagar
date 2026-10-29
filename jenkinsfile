@@ -1,10 +1,6 @@
 pipeline {
     agent any
 
-    triggers {
-        githubPush()
-    }
-
     options {
         disableConcurrentBuilds()
         buildDiscarder(logRotator(daysToKeepStr: '2'))
@@ -34,13 +30,14 @@ pipeline {
             steps {
                 script {
                     withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
-                        sh """
-                            sonar-scanner \
+                        sh '''
+                            set +x
+                            /opt/sonar-scanner/sonar-scanner/bin/sonar-scanner \
                               -Dsonar.projectKey=Kee \
                               -Dsonar.sources=. \
-                              -Dsonar.host.url=${env.SONAR_HOST_URL} \
-                              -Dsonar.token=${SONAR_TOKEN}
-                        """
+                              -Dsonar.host.url=http://13.200.229.244:9000 \
+                              -Dsonar.token=$"SONAR_TOKEN"
+                        '''
                     }
                 }
             }
@@ -56,11 +53,12 @@ pipeline {
                     }
                 }
             }
-        }
+         } 
 
-    post {
-        always {
-            cleanWs()
+        post {
+           always {
+              cleanWs()
+           }
         }
     }
 }
